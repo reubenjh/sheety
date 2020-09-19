@@ -1,0 +1,9 @@
+input {
+    width: 70px;
+}
+
+#sheet {
+    overflow: auto;
+    white-space: nowrap;
+    height: 75%;
+}
