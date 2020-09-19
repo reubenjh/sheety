@@ -10,6 +10,7 @@ window.onload = () => {
  * Globals
  */
 const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
+const operators = '+-*/'.split('');
 
 /* 
  * Classes
@@ -39,10 +40,10 @@ class Sheet {
     }
 
     createCells() {
-        // loop through rows
+        // Loop through rows
         let row = 0; 
         while(row <= this.rowCount) {
-            // create cols
+            // Create cols
             let col = 0;
             while(col <= this.colCount) {
                 (!row || !col)
@@ -50,7 +51,7 @@ class Sheet {
                     : this.createCell(row, col);
                 col++;
             }
-            // drop line
+            // Drop a line
             this.el.appendChild(document.createElement('br'));
             row++;
         }
@@ -74,6 +75,8 @@ class Cell {
     row;
     col;
     key;
+    value = '';
+    formula;
 
     constructor(sheet, row, col) {
         this.sheet = sheet;
@@ -86,6 +89,95 @@ class Cell {
         this.el = document.createElement('input');
         this.el.type = 'text';
         this.sheet.el.appendChild(this.el);
+        this.addEvents();
+    }
+
+    addEvents() {
+        this.el.onfocus = () => {
+            if (this.formula) this.showFormula();
+        }
+
+        this.el.onblur = (e) => {
+            const input = e.target.value;
+            if (input) {
+                try {
+                    this.calculateValue(input);
+                } catch (error) {
+                    // set #N/A
+                    console.log(error);
+                    this.saveValue('#N/A');
+                    this.saveFormula(input);
+                }
+            }
+        }
+    }
+
+    calculateValue(input) {
+        (input[0] === '=')
+            // requires operation
+            ? (isNaN(input[1]))
+                ? this.complexOp(input)
+                : this.basicOp(input)
+            // is a simple number
+            : this.saveValue(input);
+    }
+
+    basicOp(input) {
+        console.log('basic');
+        this.saveFormula(input);
+        let total = 0;
+        let tempChars = input.split('');
+        tempChars.splice(0, 1); // remove '=';
+
+        while(tempChars.length) {
+            const opIndex = tempChars.findIndex(c => operators.includes(c));
+            const operandOne = Number(tempChars.splice(0, opIndex).join(''));
+            const operator = tempChars.splice(0, 1)[0];
+            const nextOpIndex = tempChars.findIndex(c => operators.includes(c));
+            const operandTwo = nextOpIndex === -1 
+                // only one operation requested
+                ? Number(tempChars.splice(0, tempChars.length).join(''))
+                // multiple requested
+                : Number(tempChars.splice(0, nextOpIndex).join(''));
+            
+            switch (operator) {
+                case '+':
+                    total = operandOne + operandTwo;
+                    break;
+                case '-':
+                    total = operandOne - operandTwo;
+                    break;
+                case '*':
+                    total = operandOne * operandTwo;
+                    break;
+                case '/':
+                    total = operandOne / operandTwo;
+                    break;
+                default:
+                    throw new Error;
+            }
+
+            if (tempChars.length) tempChars.unshift(...total.toString().split(''));
+        }
+
+        this.saveValue(total.toString());
+    }
+
+    complexOp(input) {
+        console.log('complex')
+    }
+
+    saveValue(input) {
+        this.value = input;
+        this.el.value = this.value
+    }
+
+    saveFormula(input) {
+        this.formula = input;
+    }
+
+    showFormula() {
+        this.el.value = this.formula;
     }
 
     setKey(rowKey) {
@@ -112,14 +204,14 @@ const reset = () => {
 
 const getLabelValue = (row, col) => {
     return (row === 0) 
-        // col labels require alphabet logic
+        // Col labels require alphabet logic
         ? getColLabelValue(col)
-        // row labels are simply the row number
+        // Row labels are simply the row number
         : row.toString().toUpperCase();
 };
 
 const getColLabelValue = (col) => {
-    // top left square is empty
+    // Top left square is empty
     if (col === 0) return null;
 
     let value = '';
@@ -128,13 +220,9 @@ const getColLabelValue = (col) => {
     const adjustedCol = col - 1;
     const alphabetIndex = toAlphabetIndex(adjustedCol);
     
-    // "A" or "AA"
+    // "A" or "AA". Note: need to extend logic to handle "AAA" / "AAAA" etc.
     const requiresPad = adjustedCol > alphabet.length - 1;
-    if (requiresPad) {
-        // todo: extend logic to handle "AAA" / "AAAA" etc.
-        const padding = Math.max(0, Math.floor(col / alphabet.length - 1));
-        value += alphabet[padding];
-    }
+    if (requiresPad) value += alphabet[Math.max(0, Math.floor(col / alphabet.length - 1))];
 
     value += alphabet[alphabetIndex];
     return value.toUpperCase();
