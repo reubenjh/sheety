@@ -121,12 +121,11 @@ const getLabel = (row, col) => {
         // -1 to account for col labels
         const adjustedCol = col - 1;
         
-        const maxAlphabetIndex = alphabet.length - 1
         const alphabetIndex = toAlphabetIndex(adjustedCol);
-        const requiresPad = adjustedCol > maxAlphabetIndex;
+        const requiresPad = adjustedCol > alphabet.length - 1;
 
         if (requiresPad) {
-            const padding = Math.max(0, Math.floor(adjustedCol / maxAlphabetIndex));
+            const padding = Math.max(0, Math.floor(col / alphabet.length - 1));
             label += alphabet[padding];
         }
 
