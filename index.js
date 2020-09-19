@@ -3,7 +3,7 @@
  */
 
 window.onload = () => {
-    initSheet();
+    reset();
 }
 
 /* 
@@ -17,7 +17,7 @@ const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
 
 class Sheet {
     el;
-    rowLabels = [];
+    labels = [];
     cells = [];
     colCount;
     rowCount;
@@ -45,27 +45,26 @@ class Sheet {
             // create cols
             let col = 0;
             while(col <= this.colCount) {
-                if (row === 0) {
-                    // create row labels
-                    const label = new Label(this, row, col, getLabel(row, col));
-                    this.rowLabels.push(label);
-                } else {
-                    if (col === 0) {
-                        // create col label
-                        const label = new Label(this, row, col, getLabel(row, col));
-                    } else {
-                        // create cell
-                        const cell = new Cell(this, row, col);
-                        cell.setKey(this.rowLabels.find(l => l.col === col).el.value);
-                    }
-                }
+                (!row || !col)
+                    ? this.createLabel(row, col)
+                    : this.createCell(row, col);
                 col++;
             }
-
             // drop line
             this.el.appendChild(document.createElement('br'));
             row++;
         }
+    }
+
+    createLabel(row, col) {
+        const label = new Label(this, row, col, getLabelValue(row, col));
+        this.labels.push(label);
+    }
+
+    createCell(row, col) {
+        const cell = new Cell(this, row, col);
+        cell.setKey(this.labels.find(l => l.col === col).el.value);
+        this.cells.push(cell);
     }
 }
 
@@ -98,7 +97,7 @@ class Label extends Cell {
     constructor(sheet, row, col, value) {
         super(sheet, row, col);
         this.el.disabled = true;
-        this.el.value = value ? value.toUpperCase() : null;
+        this.el.value = value;
         this.el.classList.add('has-text-centered');
     }
 }
@@ -107,37 +106,39 @@ class Label extends Cell {
  * Methods
  */
 
-const initSheet = () => {
-    const sheet = new Sheet();
+const reset = () => {
+    new Sheet();
 }
 
-const getLabel = (row, col) => {
-    let label = '';
-    // is a row label
-    if (row === 0) {
-        // top left square is empty
-        if (col === 0) return null;
+const getLabelValue = (row, col) => {
+    return (row === 0) 
+        // col labels require alphabet logic
+        ? getColLabelValue(col)
+        // row labels are simply the row number
+        : row.toString().toUpperCase();
+};
 
-        // -1 to account for col labels
-        const adjustedCol = col - 1;
-        
-        const alphabetIndex = toAlphabetIndex(adjustedCol);
-        const requiresPad = adjustedCol > alphabet.length - 1;
+const getColLabelValue = (col) => {
+    // top left square is empty
+    if (col === 0) return null;
 
-        if (requiresPad) {
-            const padding = Math.max(0, Math.floor(col / alphabet.length - 1));
-            label += alphabet[padding];
-        }
+    let value = '';
 
-        label += alphabet[alphabetIndex];
-
-    } else {
-        // is a col label
-        label = row.toString();
+    // -1 to account for col labels
+    const adjustedCol = col - 1;
+    const alphabetIndex = toAlphabetIndex(adjustedCol);
+    
+    // "A" or "AA"
+    const requiresPad = adjustedCol > alphabet.length - 1;
+    if (requiresPad) {
+        // todo: extend logic to handle "AAA" / "AAAA" etc.
+        const padding = Math.max(0, Math.floor(col / alphabet.length - 1));
+        value += alphabet[padding];
     }
 
-    return label;
-};
+    value += alphabet[alphabetIndex];
+    return value.toUpperCase();
+}
 
 const toAlphabetIndex = (col) => {
     const max = alphabet.length - 1;
