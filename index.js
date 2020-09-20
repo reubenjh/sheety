@@ -3,7 +3,7 @@
  */
 
 window.onload = () => {
-    reset();
+    createSheet();
 }
 
 /* 
@@ -27,16 +27,13 @@ class Sheet {
         this.rowCount = rowCount;
         this.colCount = colCount;
 
-        this.createEl();
-        this.createCells();
-    }
-
-    createEl() {
         this.el = document.createElement('div');
         this.el.setAttribute('id', 'sheet');
-        var old = document.getElementById('sheet');
-        if (old) old.parentElement.removeChild(old);
-        document.getElementById('app').appendChild(this.el);
+        
+        this.createCells();
+        
+        const appContainer = document.getElementById('app');
+        appContainer.appendChild(this.el);
     }
 
     createCells() {
@@ -66,6 +63,21 @@ class Sheet {
         const cell = new Cell(this, row, col);
         cell.setKey(this.labels.find(l => l.col === col).el.value);
         this.cells.push(cell);
+    }
+
+    remove() {
+        this.el.parentElement.removeChild(this.el);
+    }
+
+    populate(cells) {
+        const dataCells = cells.filter(c => c.value || c.formula);
+        dataCells.forEach(cell => {
+            const myCell = this.cells.find(c => c.key === cell.key);
+            if (myCell) {
+                myCell.saveValue(cell.value);
+                myCell.saveFormula(cell.formula);
+            }
+        });
     }
 }
 
@@ -197,9 +209,17 @@ class Label extends Cell {
 /* 
  * Methods
  */
+const refresh = (sheet) => {
+    sheet.remove();
+    document.getElementById('loader').classList.remove('invisible');
+    createSheet(sheet.cells);
+}
 
-const reset = () => {
-    new Sheet();
+const createSheet = (data) => {
+    const sheet = new Sheet();
+    if (data) sheet.populate(data);
+    document.getElementById('refresh').onclick = () => refresh(sheet);
+    document.getElementById('loader').classList.add('invisible');
 }
 
 const getLabelValue = (row, col) => {
