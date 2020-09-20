@@ -15,3 +15,4 @@ Sadly didn't finish! Here's a writeup on next steps and my approach to them if I
 *** Fix bug with SUM functions where they don't seem to be able to accomodate including another SUM'd cell in their range
 *** Add logic to remove redundant 'changed' Cell event listeners as they can build up
 *** Add more complex functions like AVERAGE, COUNT etc
+*** Cry that I didn't put enough thought into building it in a table structure from the get go...
