@@ -1,15 +1,18 @@
-/*
- * Execute
- */
-window.onload = () => {
-    createSheet();
-}
-
 /* 
  * Globals
  */
 const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
 const operators = '+-*/'.split('');
+let changed;
+
+/*
+ * Execute
+ */
+window.onload = () => {
+    createSheet();
+    changed = document.createEvent('Event');
+    changed.initEvent('changed', true, true);
+}
 
 /* 
  * Classes
@@ -110,50 +113,49 @@ class Cell {
         this.el.onblur = (e) => {
             const input = e.target.value;
             if (input) {
-                try {
-                    this.calculateValue(input);
-                } catch (error) {
-                    // set #N/A
-                    console.log(error);
-                    this.saveValue('#N/A');
-                    this.saveFormula(input);
-                }
+                this.calculateValue(input);
             }
         }
     }
 
     calculateValue(input) {
-        input[0] === '='
-            // requires operation
-            ? this.doOp(input)
-            // is a simple number
-            : this.saveValue(input);
+        try {
+            input[0] === '='
+                ? this.doOp(input) // Requires operation
+                : this.save(input, input);
+        } catch (error) {
+            // Set #N/A
+            this.save(this.input, '#N/A');
+        }
+
+        this.el.dispatchEvent(changed);
     }
 
     doOp(input) {
-        this.saveFormula(input);
-
-        let chars = input.split('');
-        chars.splice(0, 1); // remove '='
-
         const result = isNaN(input[1])
-            ? this.complexOp(chars)
-            : this.basicOp(chars);
+            ? this.complexOp(input)
+            : this.basicOp(input);
+        this.save(input, result);
+    }
 
+    save(input, result) {
+        this.saveFormula(input);
         this.saveValue(result);
     }
 
-    basicOp(chars) {
+    basicOp(input) {
         let total = 0;
+        let chars = input.split('');
+        chars.splice(0, 1); // Remove '='
         while(chars.length) {
             const opIndex = chars.findIndex(c => operators.includes(c));
             const operandOne = Number(chars.splice(0, opIndex).join(''));
             const operator = chars.splice(0, 1)[0];
             const nextOpIndex = chars.findIndex(c => operators.includes(c));
             const operandTwo = nextOpIndex === -1 
-                // only one operation requested
+                // Only one operation requested
                 ? Number(chars.splice(0, chars.length).join(''))
-                // multiple requested
+                // Multiple requested
                 : Number(chars.splice(0, nextOpIndex).join(''));
             
             switch (operator) {
@@ -178,42 +180,57 @@ class Cell {
         return total.toString();
     }
 
-    complexOp(chars) {
+    complexOp(input) {
+        let targetCells = [];
+
+        let chars = input.split('');
+        chars.splice(0, 1); // Remove '='
+
         let total = 0;
         const opEnd = chars.findIndex(c => c === '(');
         const op = chars.splice(0, opEnd).join('').toUpperCase();
-        chars.splice(0, 1); // trim opening bracket
-        chars.splice(chars.length - 1, 1); // trim closing bracket
+        chars.splice(0, 1); // Trim opening bracket
+        chars.splice(chars.length - 1, 1); // Trim closing bracket
 
         switch (op) {
             case 'SUM':
                 chars = chars.join('').toUpperCase();
-                const operandOne = chars.split(':')[0]; // A12
-                const operandTwo = chars.split(':')[1]; // A18
+                const operandOne = chars.split(':')[0];
+                const operandTwo = chars.split(':')[1];
                 const sorted = [operandOne, operandTwo].sort((a, b) => b - a);
                 const low = sorted[0];
                 const high = sorted[1];
 
-                const targetCells = this.sheet.cells.filter(c => {
-                    // add length check due to string kerfuffles
-                    return c.key >= low && c.key <= high && c.key.length <= high.length;
+                // Specify target cells
+                targetCells = this.sheet.cells.filter(c => {
+                    return (c.key >= low && 
+                            c.key <= high && 
+                            // Add length check due to string kerfuffles
+                            c.key.length <= high.length);
                 });
 
-                total = targetCells.reduce((a, c) => {
-                    return a + Number(c.value);
-                }, 0);
+                // Calculate
+                total = targetCells.reduce((a, c) => a + Number(c.value), 0);
                 break;
-            // add more ops here like AVERAGE, COUNT, MAX etc.
+            // Todo: add more op cases here like AVERAGE, COUNT, MAX etc.
             default:
                 throw new Error;
         }
 
-        // next add event listeners
+        // Watch cells for updates
+        if (input !== this.formula) {
+            targetCells.forEach(c => {
+                c.el.addEventListener('changed', (e) => {
+                    this.calculateValue(input);
+                });
+            });
+        }
+
         return total.toString();
     }
 
     saveValue(input) {
-        this.value = input;
+        this.value = input.toString();
         this.el.value = this.value
     }
 
@@ -250,9 +267,10 @@ const refresh = (sheet) => {
 const createSheet = (data) => {
     const sheet = new Sheet();
     if (data) sheet.populate(data);
+
     const refresh = document.getElementById('refresh');
     refresh.onclick = () => refresh(sheet);
-    refresh.classList.remove('invisible');
+    refresh.classList.remove('invisible'); 
 }
 
 const getLabelValue = (row, col) => {
