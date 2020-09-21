@@ -135,24 +135,19 @@ class Cell {
                 ? this.save(input, input)
                 : this.doOp(input); // Requires operation
         } catch (error) {
-            // Set #N/A
             console.log(error)
             this.save(this.input, '#N/A');
         }
     }
 
     doOp(input) {
+        if (input !== this.formula && this.isWatching) this.clearStaleWatchers(input);
+
         const result = isNaN(input[1])
             ? this.complexOp(input)
             : this.basicOp(input);
-        this.save(input, result);
-    }
 
-    save(input, result) {
-        this.clearStaleWatchers(input);
-        this.saveFormula(input);
-        this.saveValue(result);
-        this.runWatchers();
+        this.save(input, result);
     }
 
     basicOp(input) {
@@ -220,7 +215,10 @@ class Cell {
                             c.key.length <= high.length);
                 });
 
-                total = targetCells.reduce((a, c) => a + Number(c.value), 0);
+                total = targetCells.reduce((a, c) => {
+                    const v = c.value.length ? Number(c.value) : 0
+                    return a + v;
+                }, 0);
                 break;
             default:
                 throw new Error;
@@ -230,6 +228,12 @@ class Cell {
         if (input !== this.formula && targetCells.length) this.addWatchers(targetCells, input);
 
         return total.toString();
+    }
+
+    save(input, result) {
+        this.saveFormula(input);
+        this.saveValue(result);
+        this.runWatchers();
     }
 
     saveValue(input) {
@@ -266,14 +270,11 @@ class Cell {
     }
 
     clearStaleWatchers(input) {
-        const hasChangedFormula = this.formula && input !== this.formula;
-        if (this.isWatching && hasChangedFormula) {
-            this.sheet.cells
-                .filter(c => c.watchers.find(w => w.key === this.key))
-                .forEach(c => c.watchers = c.watchers.filter(w => w.key !== this.key));
+        this.sheet.cells
+            .filter(c => c.watchers.find(w => w.key === this.key))
+            .forEach(c => c.watchers = c.watchers.filter(w => w.key !== this.key));
 
-            this.isWatching = false;
-        }
+        this.isWatching = false;
     }
 }
 
