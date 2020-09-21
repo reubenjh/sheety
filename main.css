@@ -1,13 +1,25 @@
-input {
-    width: 70px;
-}
-
-.invisible {
-    display: none !important;
-}
-
 #sheet {
     overflow: auto;
     white-space: nowrap;
     height: 70%;
+}
+
+input {
+    width: 80px;
+}
+
+button {
+    width: 120px;
+}
+
+.bold {
+    font-weight: 700;
+}
+
+.italic {
+    font-style: italic;
+}
+
+.underline {
+    text-decoration: underline;
 }

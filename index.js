@@ -8,7 +8,8 @@ const operators = '+-*/'.split('');
  * Execute
  */
 window.onload = () => {
-    createSheet();
+    initSheet();
+    initFormatting();
 }
 
 /* 
@@ -91,6 +92,7 @@ class Cell {
     formula;
     watchers = [];
     isWatching;
+    isSelected;
 
     constructor(sheet, row, col) {
         this.sheet = sheet;
@@ -109,21 +111,29 @@ class Cell {
     addEvents() {
         this.el.onfocus = () => {
             if (this.formula) this.showFormula();
+
+            // Deselect all others
+            const selected = this.sheet.cells.find(c => c.isSelected);
+            if (selected) {
+                selected.isSelected = false;
+                selected.el.classList.remove('selected');
+            }
+
+            // Select current
+            this.el.classList.add('selected');
+            this.isSelected = true;
         }
 
         this.el.onblur = (e) => {
-            const input = e.target.value;
-            if (input) {
-                this.calculateValue(input);
-            }
+            this.calculateValue(e.target.value);
         }
     }
 
     calculateValue(input) {
         try {
-            input[0] === '='
-                ? this.doOp(input) // Requires operation
-                : this.save(input, input);
+            !input.length || !isNaN(input[0])
+                ? this.save(input, input)
+                : this.doOp(input); // Requires operation
         } catch (error) {
             // Set #N/A
             console.log(error)
@@ -279,18 +289,29 @@ class Label extends Cell {
 /* 
  * Methods
  */
-const refresh = (sheet) => {
-    sheet.remove();
-    createSheet(sheet.cells);
-}
-
-const createSheet = (data) => {
+const initSheet = (data) => {
     const sheet = new Sheet();
     if (data) sheet.populate(data);
 
+    // Hook in refresh button
     const refresh = document.getElementById('refresh');
     refresh.onclick = () => refresh(sheet);
-    refresh.classList.remove('invisible'); 
+}
+
+const refresh = (sheet) => {
+    sheet.remove();
+    initSheet(sheet.cells);
+}
+
+const initFormatting = () => {
+    document.getElementById('bold').onclick = () => toggleFormat('bold');
+    document.getElementById('italic').onclick = () => toggleFormat('italic');
+    document.getElementById('underline').onclick = () => toggleFormat('underline');
+}
+
+const toggleFormat = (format) => {
+    const selected = document.getElementsByClassName('selected');
+    if (selected.length) selected[0].classList.toggle(format);
 }
 
 const getLabelValue = (row, col) => {
@@ -299,7 +320,7 @@ const getLabelValue = (row, col) => {
         ? getColLabelValue(col)
         // Row labels are simply the row number
         : row.toString().toUpperCase();
-};
+}
 
 const getColLabelValue = (col) => {
     // Top left square is empty
