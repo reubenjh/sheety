@@ -12,7 +12,6 @@ Sadly didn't finish! Here's a writeup on next steps and my approach to them if I
             - Removes it's own click event
         - Remove UI changes to show you're no longer in formatting mode
     - I would then probably refactor the buttons to be classes for readability, making the refresh button a class too in the process.
-*** Fix bug with SUM functions where they don't seem to be able to accomodate including another SUM'd cell in their range
-*** Add logic to remove redundant 'changed' Cell event listeners as they can build up
 *** Add more complex functions like AVERAGE, COUNT etc
-*** Cry that I didn't put enough thought into building it in a table structure from the get go...
+*** Refactor + tidy up
+*** Cry that I didn't put more thought into building it in a table structure from the get go, with cells layered under their column heading in a js object to make searching simpler ...

@@ -3,15 +3,12 @@
  */
 const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
 const operators = '+-*/'.split('');
-let changed;
 
 /*
  * Execute
  */
 window.onload = () => {
     createSheet();
-    changed = document.createEvent('Event');
-    changed.initEvent('changed', true, true);
 }
 
 /* 
@@ -70,15 +67,17 @@ class Sheet {
         this.el.parentElement.removeChild(this.el);
     }
 
-    populate(cells) {
-        const dataCells = cells.filter(c => c.value || c.formula);
-        dataCells.forEach(cell => {
-            const myCell = this.cells.find(c => c.key === cell.key);
-            if (myCell) {
-                myCell.saveValue(cell.value);
-                myCell.saveFormula(cell.formula);
-            }
-        });
+    populate(data) {
+        data.filter(c => c.value || c.formula || c.watchers.length || c.isWatching)
+            .forEach(c => {
+                const myCell = this.cells.find(c => c.key === c.key);
+                if (myCell) {
+                    myCell.saveValue(c.value);
+                    myCell.saveFormula(c.formula);
+                    myCell.watchers = c.watchers;
+                    myCell.isWatching = c.isWatching;
+                }
+            });
     }
 }
 
@@ -90,6 +89,8 @@ class Cell {
     key;
     value = '';
     formula;
+    watchers = [];
+    isWatching;
 
     constructor(sheet, row, col) {
         this.sheet = sheet;
@@ -125,10 +126,9 @@ class Cell {
                 : this.save(input, input);
         } catch (error) {
             // Set #N/A
+            console.log(error)
             this.save(this.input, '#N/A');
         }
-
-        this.el.dispatchEvent(changed);
     }
 
     doOp(input) {
@@ -139,8 +139,10 @@ class Cell {
     }
 
     save(input, result) {
+        this.clearStaleWatchers(input);
         this.saveFormula(input);
         this.saveValue(result);
+        this.runWatchers();
     }
 
     basicOp(input) {
@@ -201,7 +203,6 @@ class Cell {
                 const low = sorted[0];
                 const high = sorted[1];
 
-                // Specify target cells
                 targetCells = this.sheet.cells.filter(c => {
                     return (c.key >= low && 
                             c.key <= high && 
@@ -209,41 +210,60 @@ class Cell {
                             c.key.length <= high.length);
                 });
 
-                // Calculate
                 total = targetCells.reduce((a, c) => a + Number(c.value), 0);
                 break;
-            // Todo: add more op cases here like AVERAGE, COUNT, MAX etc.
             default:
                 throw new Error;
         }
 
-        // Watch cells for updates
-        if (input !== this.formula) {
-            targetCells.forEach(c => {
-                c.el.addEventListener('changed', (e) => {
-                    this.calculateValue(input);
-                });
-            });
-        }
+        // Add watcher functions to target cells
+        if (input !== this.formula && targetCells.length) this.addWatchers(targetCells, input);
 
         return total.toString();
     }
 
     saveValue(input) {
         this.value = input.toString();
-        this.el.value = this.value
+        this.el.value = this.value;
     }
 
     saveFormula(input) {
         this.formula = input;
     }
-
+    
     showFormula() {
         this.el.value = this.formula;
     }
 
     setKey(rowKey) {
         this.key = rowKey + this.row.toString();
+    }
+
+    addWatchers(targetCells, input) {
+        targetCells.forEach(c => {
+            c.watchers.push({
+                key: this.key,
+                func: () => this.calculateValue(input)
+            });
+        });
+        this.isWatching = true;
+    }
+
+    runWatchers() {
+        this.watchers.forEach(w => {
+            w.func();
+        });
+    }
+
+    clearStaleWatchers(input) {
+        const hasChangedFormula = this.formula && input !== this.formula;
+        if (this.isWatching && hasChangedFormula) {
+            this.sheet.cells
+                .filter(c => c.watchers.find(w => w.key === this.key))
+                .forEach(c => c.watchers = c.watchers.filter(w => w.key !== this.key));
+
+            this.isWatching = false;
+        }
     }
 }
 
